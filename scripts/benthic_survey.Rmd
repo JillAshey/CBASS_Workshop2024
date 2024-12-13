@@ -1,0 +1,65 @@
+---
+title: "Benthic survey"
+author: "Jill Ashey"
+date: "2024-12-13"
+output: html_document
+---
+
+The following script analyzes the benthic survery data that was collected on Dec 13, 2024 during the CBASS workshop. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+Read in data 
+```{r}
+data <- read.csv("../data/benthic/annotations.csv")
+head(data)
+```
+
+Calculate percent
+```{r}
+result <- data %>%
+  # Replace NA or empty values in 'other' column with 'shallow'
+  mutate(other = ifelse(is.na(other) | other == "", "shallow", other)) %>%
+  group_by(other, Label) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(other) %>%
+  mutate(total = sum(count),
+         percentage = (count / total) * 100) %>%
+  arrange(other, desc(percentage))
+```
+
+Plot general percentages 
+```{r}
+ggplot(result, aes(x = other, y = percentage, fill = fct_rev(Label))) +
+  geom_bar(stat = "identity", position = "fill", width = 0.7, color = "black") + 
+  theme_minimal()
+  
+```
+
+Subset by coral and plot 
+```{r}
+result_coral <- data %>%
+  # Replace NA or empty values in 'other' column with 'shallow'
+  mutate(other = ifelse(is.na(other) | other == "", "shallow", other)) %>%
+  # Filter for labels starting with "HC_"
+  filter(str_starts(Label, "HC_")) %>%
+  group_by(other, Label) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(other) %>%
+  mutate(total = sum(count),
+         percentage = (count / total) * 100) %>%
+  arrange(other, desc(percentage))  
+```
+
+Plot general percentages 
+```{r}
+ggplot(result_coral, aes(x = other, y = percentage, fill = fct_rev(Label))) +
+  geom_bar(stat = "identity", position = "fill", width = 0.7, color = "black") + 
+  theme_minimal()
+```
+
+
