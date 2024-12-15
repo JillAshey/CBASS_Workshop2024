@@ -1,0 +1,238 @@
+---
+title: "cbass statistics"
+author: "Jill Ashey"
+date: "2024-12-15"
+output: html_document
+---
+
+The following script assess statistical significance between the ED50 values of four coral species in the Maldives
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(broom)
+library(ggstatsplot)
+```
+
+Read in data 
+```{r}
+cbass <- read.csv("../output/cbass/EDs_ALL.TAXA.csv")
+```
+
+Calculate the decline width (DW), which is: ED95 - ED5, along with relative thermal tolerance (RTT), which is: ED50 - MMM (in our case, MMM is 29.5).
+```{r}
+cbass <- cbass %>%
+  mutate(DW = ED95 - ED5) %>%
+  mutate(RTT = ED50 - 29.5)
+```
+
+Compute summary statistics per species 
+```{r}
+summary_stats <- cbass %>%
+  group_by(Species) %>%
+  summarise(
+    mean_ED5 = mean(ED5),
+    sd_ED5 = sd(ED5),
+    ci_lower_ED5 = mean_ED5 - qt(0.975, df=n()-1) * (sd_ED5 / sqrt(n())),
+    ci_upper_ED5 = mean_ED5 + qt(0.975, df=n()-1) * (sd_ED5 / sqrt(n())),
+    
+    mean_ED50 = mean(ED50),
+    sd_ED50 = sd(ED50),
+    ci_lower_ED50 = mean_ED50 - qt(0.975, df=n()-1) * (sd_ED50 / sqrt(n())),
+    ci_upper_ED50 = mean_ED50 + qt(0.975, df=n()-1) * (sd_ED50 / sqrt(n())),
+    
+    mean_ED95 = mean(ED95),
+    sd_ED95 = sd(ED95),
+    ci_lower_ED95 = mean_ED95 - qt(0.975, df=n()-1) * (sd_ED95 / sqrt(n())),
+    ci_upper_ED95 = mean_ED95 + qt(0.975, df=n()-1) * (sd_ED95 / sqrt(n())),
+    
+    mean_DW = mean(DW),
+    sd_DW = sd(DW),
+    ci_lower_DW = mean_DW - qt(0.975, df=n()-1) * (sd_DW / sqrt(n())),
+    ci_upper_DW = mean_DW + qt(0.975, df=n()-1) * (sd_DW / sqrt(n())),
+    
+    mean_RTT = mean(RTT),
+    sd_RTT = sd(RTT),
+    ci_lower_RTT = mean_RTT - qt(0.975, df=n()-1) * (sd_RTT / sqrt(n())),
+    ci_upper_RTT = mean_RTT + qt(0.975, df=n()-1) * (sd_RTT / sqrt(n()))
+  )
+```
+
+Run ANOVA to compare species ED50s
+```{r}
+# Run ANOVA
+anova_result <- aov(ED50 ~ Species, data = cbass)
+
+# Print summary of the ANOVA
+summary(anova_result)
+
+# Check normality
+shapiro.test(residuals(anova_result))
+
+# Check homogeneity of variances (install 'car' package if not installed)
+leveneTest(ED50 ~ Species, data = cbass)
+```
+Data is normal and ED50 is significant by species. 
+
+Run post-hoc tests
+```{r}
+# Run Tukey's HSD post-hoc test
+tukey_result <- TukeyHSD(anova_result)
+
+# Print the results of Tukey's HSD
+print(tukey_result)
+```
+
+Significant differences between POC annd POR (still need to add acropora). 
+
+Plot boxplot of ED50
+```{r}
+# Boxplot of ED50 by Species
+ggplot(cbass, aes(x = Species, y = ED50)) +
+    geom_boxplot(fill = "lightblue", color = "darkblue") +
+    theme_minimal() +
+    labs(title = "Boxplot of ED50 by Species", x = "Species", y = "ED50")
+
+```
+
+Run ANOVA to compare species ED5s
+```{r}
+# Run ANOVA
+anova_result <- aov(ED5 ~ Species, data = cbass)
+
+# Print summary of the ANOVA
+summary(anova_result)
+
+# Check normality
+shapiro.test(residuals(anova_result))
+
+# Check homogeneity of variances (install 'car' package if not installed)
+leveneTest(ED5 ~ Species, data = cbass)
+```
+
+Data is normal and ED5 is significant by species. 
+
+Run post-hoc tests
+```{r}
+# Run Tukey's HSD post-hoc test
+tukey_result <- TukeyHSD(anova_result)
+
+# Print the results of Tukey's HSD
+print(tukey_result)
+```
+
+Plot boxplot of ED5
+```{r}
+# Boxplot of ED50 by Species
+ggplot(cbass, aes(x = Species, y = ED5)) +
+    geom_boxplot(fill = "lightblue", color = "darkblue") +
+    theme_minimal() +
+    labs(title = "Boxplot of ED50 by Species", x = "Species", y = "ED5")
+```
+
+Run ANOVA to compare species ED95s
+```{r}
+# Run ANOVA
+anova_result <- aov(ED95 ~ Species, data = cbass)
+
+# Print summary of the ANOVA
+summary(anova_result)
+
+# Check normality
+shapiro.test(residuals(anova_result))
+
+# Check homogeneity of variances (install 'car' package if not installed)
+leveneTest(ED95 ~ Species, data = cbass)
+```
+
+Data is normal and ED95 is significant by species. 
+
+Run post-hoc tests
+```{r}
+# Run Tukey's HSD post-hoc test
+tukey_result <- TukeyHSD(anova_result)
+
+# Print the results of Tukey's HSD
+print(tukey_result)
+```
+
+Plot boxplot of ED95
+```{r}
+# Boxplot of ED95 by Species
+ggplot(cbass, aes(x = Species, y = ED95)) +
+    geom_boxplot(fill = "lightblue", color = "darkblue") +
+    theme_minimal() +
+    labs(title = "Boxplot of ED95 by Species", x = "Species", y = "ED95")
+```
+
+Run ANOVA to compare species DWs
+```{r}
+# Run ANOVA
+anova_result <- aov(DW ~ Species, data = cbass)
+
+# Print summary of the ANOVA
+summary(anova_result)
+
+# Check normality
+shapiro.test(residuals(anova_result))
+
+# Check homogeneity of variances (install 'car' package if not installed)
+leveneTest(DW ~ Species, data = cbass)
+```
+
+Run post-hoc tests
+```{r}
+# Run Tukey's HSD post-hoc test
+tukey_result <- TukeyHSD(anova_result)
+
+# Print the results of Tukey's HSD
+print(tukey_result)
+```
+
+Plot boxplot of DW
+```{r}
+# Boxplot of ED95 by Species
+ggplot(cbass, aes(x = Species, y = DW)) +
+    geom_boxplot(fill = "lightblue", color = "darkblue") +
+    theme_minimal() +
+    labs(title = "Boxplot of DW by Species", x = "Species", y = "DW")
+```
+
+Run ANOVA to compare species RTTs
+```{r}
+# Run ANOVA
+anova_result <- aov(RTT ~ Species, data = cbass)
+
+# Print summary of the ANOVA
+summary(anova_result)
+
+# Check normality
+shapiro.test(residuals(anova_result))
+
+# Check homogeneity of variances (install 'car' package if not installed)
+leveneTest(RTT ~ Species, data = cbass)
+```
+
+Run post-hoc tests
+```{r}
+# Run Tukey's HSD post-hoc test
+tukey_result <- TukeyHSD(anova_result)
+
+# Print the results of Tukey's HSD
+print(tukey_result)
+```
+
+Plot boxplot of RTT
+```{r}
+# Boxplot of ED95 by Species
+ggplot(cbass, aes(x = Species, y = RTT)) +
+    geom_boxplot(fill = "lightblue", color = "darkblue") +
+    theme_minimal() +
+    labs(title = "Boxplot of RTT by Species", x = "Species", y = "RTT")
+```
+
+
+
+
+
