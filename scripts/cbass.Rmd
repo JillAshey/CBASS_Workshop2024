@@ -152,8 +152,10 @@ result_df <- predictions_df %>%
   left_join(summary_eds_df, by = c("Site", "Condition", "Species", "Timepoint"))
 ```
 
-Plot EDs for groups 
+Plot EDs for groups (TP1)
 ```{r}
+
+
 tempresp_curve <- ggplot(result_df,
        aes(x = Temperature,
            y = PredictedPAM,
@@ -193,7 +195,7 @@ tempresp_curve <- ggplot(result_df,
                         y = max(Upper) + 0.12,
                         label = round(Mean_ED95, 2)),
             size = 3, angle = 90, check_overlap = T) +
-  facet_grid(Species ~ Site ~ Condition) +
+  facet_grid(Species ~ Condition ~ Timepoint) +
   # To add the real PAM and compare with predicted values
   geom_point(data = cbass_data,
              aes(x = Temperature,

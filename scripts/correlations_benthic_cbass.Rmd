@@ -1,0 +1,84 @@
+---
+title: "benthic cbass correlations"
+author: "Jill Ashey"
+date: "2024-12-15"
+output: html_document
+---
+
+Using data generated during the CBASS 2024 workshop in the Maldives, investigate possible correlations between coral cover and ED50. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+Read in ed50 data
+```{r}
+ed50 <- read.csv("../output/cbass/EDs.csv")
+```
+
+Read in percent cover data
+```{r}
+benthic <- read.csv("../output/benthic/percent_cover.csv")
+```
+
+Read in percent coral cover data 
+```{r}
+benthic_coral <- read.csv("../output/benthic/percent_coral_cover.csv")
+```
+
+Perform regressions
+```{r}
+# Combine datasets
+combined_data <- benthic %>%
+    left_join(ed50, by = c("other" = "Condition"))
+
+# Simple linear regression model
+linear_model <- lm(percentage ~ ED50, data = combined_data)
+
+# Summary of the model
+summary(linear_model)
+
+# Diagnostic plots for the linear model
+par(mfrow=c(2,2)) # Set up a plotting area for multiple plots
+plot(linear_model) # Generates diagnostic plots
+
+# Multiple regression model including condition and timepoint as factors
+multiple_model <- lm(percentage ~ ED50 + other + factor(Timepoint), data = combined_data)
+
+# Summary of model 
+summary(multiple_model)
+```
+
+
+
+
+
+
+
+```{r}
+# Combine datasets
+combined_data <- benthic %>%
+    left_join(ed50, by = c("other" = "Condition"))
+
+# Calculate correlation
+correlation <- cor(combined_data$percentage, combined_data$ED50)
+
+ggplot(combined_data, aes(x = percentage, y = ED50, color = Label)) +
+    geom_point() +
+    geom_smooth(method = 'lm') +
+    labs(title = "Correlation between Percentage Cover and ED50",
+         x = "Percentage Cover (%)",
+         y = "ED50 Value") +
+    theme_minimal()
+```
+
+
+
+
+
+
+
+
+

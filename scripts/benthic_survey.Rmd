@@ -30,6 +30,9 @@ result <- data %>%
   mutate(total = sum(count),
          percentage = (count / total) * 100) %>%
   arrange(other, desc(percentage))
+
+# Save as csv 
+write.csv(result, "../output/benthic/percent_cover.csv")
 ```
 
 Plot percentages 
@@ -54,6 +57,9 @@ result_coral <- data %>%
   mutate(total = sum(count),
          percentage = (count / total) * 100) %>%
   arrange(other, desc(percentage))  
+
+# Save as csv 
+write.csv(result, "../output/benthic/percent_coral_cover.csv")
 ```
 
 Plot coral percentages 
