@@ -22,7 +22,26 @@ library(RColorBrewer)
 
 Read in data 
 ```{r}
-cbass_data <- read.csv("../data/cbass/RAW_20241212_MV_MarHE_CBASSED50.csv")
+poc_por_data <- read.csv("../data/cbass/RAW_20241212_MV_MarHE_CBASSED50.csv")
+acr_dip_data <- read.csv("../data/cbass/RAW_AcrDip_20241214_MV_MarHE_CBASSED50.csv")
+```
+
+Select only Dip for the Acropora and Diplostrea run 
+```{r}
+dip_data <- acr_dip_data %>%
+  filter(Species == "Dip") %>%
+  filter(!is.na(PAM))
+```
+
+Select only specific columns and join data
+```{r}
+poc_por_data <- poc_por_data %>%
+  dplyr::select(Date, Country, Site, Species, Genotype, Condition, Temperature, Timepoint, PAM, sampleID)
+  
+dip_data <- dip_data %>%
+  dplyr::select(Date, Country, Site, Species, Genotype, Condition, Temperature, Timepoint, PAM, sampleID)
+
+cbass_data <- rbind(poc_por_data, dip_data)
 ```
 
 Make data tidy and validate. 
@@ -36,7 +55,7 @@ For the ED50 model, a grouping property needs to be chosen; in our case, it is S
 
 Fit dose response models 
 ```{r}
-grouping_properties <- c("Site", "Condition", "Species", "Timepoint")
+grouping_properties <- c("Site", "Species", "Timepoint")
 drm_formula <- "PAM ~ Temperature"
 models <- fit_drms(cbass_data, grouping_properties, drm_formula, is_curveid = TRUE)
 ```
@@ -49,7 +68,7 @@ cbass_data <- define_grouping_property(cbass_data, grouping_properties) %>%
 
 eds_df <- 
   left_join(eds, cbass_data, by = "GroupingProperty") %>%
-  select(names(eds), all_of(grouping_properties)) %>%
+  #select(names(eds), all_of(grouping_properties)) %>%
   distinct()
 
 # Save as csv 
@@ -59,7 +78,7 @@ write.csv(eds_df, "../output/cbass/EDs.csv", row.names = F)
 Make ED boxplots 
 ```{r}
 eds_boxplot <- eds_df %>% ggplot(
-  aes(x = Species, y = ED50, color = Condition)) +
+  aes(x = Species, y = ED50)) +
   geom_boxplot() + 
   stat_summary(
     fun = mean, 
@@ -94,7 +113,7 @@ exploratory_curve <-
     size = 0.7
   ) +
   geom_point(size = 1.5) +
-  facet_grid(Species ~ Site ~ Condition); exploratory_curve
+  facet_grid(Species ~ Site); exploratory_curve
 ```
 
 Predict PAM values for temperature range in CBASS experiment 
@@ -113,34 +132,50 @@ Tidy data for visualization
 predictions_df <- 
   left_join(predictions,
             define_grouping_property(cbass_data, grouping_properties) %>% 
-              select(c(all_of(grouping_properties), GroupingProperty)),
+            dplyr::select(c(all_of(grouping_properties), GroupingProperty)),
             by = "GroupingProperty",
             relationship = "many-to-many") %>%
   distinct()
 ```
 
-Get ED summary stats for groupings 
+Calculate DW and RTT and get ED summary stats for groupings. In the confidence interval, the value 0.975 corresponds to the upper tail probability for a two-tailed t-distribution with a 95%. 
 ```{r}
 summary_eds_df <- eds_df %>%
-  group_by(Site, Condition, Species, Timepoint) %>%
-    summarise(Mean_ED5 = mean(ED5),
+  mutate(DW = ED95 - ED5) %>%
+  mutate(RTT = ED50 - 29.5) %>%
+  group_by(Site, Species, Timepoint) %>%
+    summarise(
+      # ED5
+            Mean_ED5 = mean(ED5),
             SD_ED5 = sd(ED5),
             SE_ED5 = sd(ED5) / sqrt(n()),
             Conf_Int_5 = qt(0.975, df = n() - 1) * SE_ED5,
+      # ED50
             Mean_ED50 = mean(ED50),
             SD_ED50 = sd(ED50),
             SE_ED50 = sd(ED50) / sqrt(n()),
             Conf_Int_50 = qt(0.975, df = n() - 1) * SE_ED50,
+      # ED95
             Mean_ED95 = mean(ED95),
             SD_ED95 = sd(ED95),
             SE_ED95 = sd(ED95) / sqrt(n()),
-            # The value 0.975 corresponds to the upper tail probability
-            # for a two-tailed t-distribution with a 95% 
-            Conf_Int_95 = qt(0.975, df = n() - 1) * SE_ED95) %>%
+            Conf_Int_95 = qt(0.975, df = n() - 1) * SE_ED95,
+      # DW
+            Mean_DW = mean(DW),
+            SD_DW = sd(DW),
+            SE_DW = sd(DW) / sqrt(n()),
+            Conf_Int_DW = qt(0.975, df = n() - 1) * SE_DW,
+      # RTT 
+            Mean_RTT = mean(RTT),
+            SD_RTT = sd(RTT),
+            SE_RTT = sd(RTT) / sqrt(n()),
+            Conf_Int_RTT = qt(0.975, df = n() - 1) * SE_RTT) %>%
   mutate(across(c(Mean_ED50, SD_ED50, SE_ED50,
                   Mean_ED5, SD_ED5, SE_ED5,
                   Mean_ED95, SD_ED95, SE_ED95,
-                  Conf_Int_5,Conf_Int_50,Conf_Int_95), ~round(., 2)))
+                  Mean_DW, SD_DW, SE_DW,
+                  Mean_RTT, SD_RTT, SE_RTT,
+                  Conf_Int_5,Conf_Int_50,Conf_Int_95, Conf_Int_DW, Conf_Int_RTT), ~round(., 2)))
 
 # Save as csv 
 write.csv(summary_eds_df, "../output/cbass/summaryEDs.csv", row.names = F)
@@ -149,23 +184,20 @@ write.csv(summary_eds_df, "../output/cbass/summaryEDs.csv", row.names = F)
 Join all data 
 ```{r}
 result_df <- predictions_df %>%
-  left_join(summary_eds_df, by = c("Site", "Condition", "Species", "Timepoint"))
+  left_join(summary_eds_df, by = c("Site", "Species", "Timepoint"))
 ```
 
-Plot EDs for groups (TP1)
+Plot EDs for groups
 ```{r}
-
-
 tempresp_curve <- ggplot(result_df,
        aes(x = Temperature,
            y = PredictedPAM,
            #group = GroupingProperty,
            # You can customize the group here
-           color = Condition)) +
+           )) +
   geom_line() +
   geom_ribbon(aes(ymin = Upper,
-                  ymax = Lower,
-                  fill = Condition),
+                  ymax = Lower),
               alpha = 0.2,
               linetype = "dashed") +
   geom_segment(aes(x = Mean_ED5,
@@ -195,19 +227,73 @@ tempresp_curve <- ggplot(result_df,
                         y = max(Upper) + 0.12,
                         label = round(Mean_ED95, 2)),
             size = 3, angle = 90, check_overlap = T) +
-  facet_grid(Species ~ Condition ~ Timepoint) +
+  facet_grid(Species ~ Timepoint) +
   # To add the real PAM and compare with predicted values
   geom_point(data = cbass_data,
              aes(x = Temperature,
                  y = PAM)) +
                  xlab("Temperature [C°]")+
-  scale_y_continuous(expand = c(0, 0.2)); tempresp_curve
+  scale_y_continuous(expand = c(0, 0)); tempresp_curve
 
 ggsave("../output/cbass/tempresp_curve.pdf", plot = tempresp_curve)
 ggsave("../output/cbass/tempresp_curve.png", plot = tempresp_curve)
 ```
 
+Plot per species for TP1 
+```{r}
+results_df_poc <- result_df %>%
+  filter(Species == "Poc") %>%
+  filter(Timepoint == "420")
 
+tempresp_curve_poc <- ggplot(results_df_poc,
+       aes(x = Temperature,
+           y = PredictedPAM,
+           #group = GroupingProperty,
+           # You can customize the group here
+           )) +
+  geom_line() +
+  geom_ribbon(aes(ymin = Upper,
+                  ymax = Lower),
+              alpha = 0.2,
+              linetype = "dashed") +
+  geom_segment(aes(x = Mean_ED5,
+                   y = 0,
+                   xend = Mean_ED5,
+                   yend = max(Upper)),
+               linetype = 3) +
+  geom_text(mapping=aes(x = Mean_ED5,
+                        y = max(Upper) + 0.12,
+                        label = Mean_ED5),
+            size = 3, angle = 90, check_overlap = T) +
+  geom_segment(aes(x = Mean_ED50,
+                   y = 0,
+                   xend = Mean_ED50,
+                   yend = max(Upper)),
+               linetype = 3) +
+  geom_text(mapping=aes(x = Mean_ED50,
+                        y = max(Upper) + 0.12,
+                        label = round(Mean_ED50, 2)),
+            size = 3, angle = 90, check_overlap = T) +
+  geom_segment(aes(x = Mean_ED95,
+                   y = 0,
+                   xend = Mean_ED95,
+                   yend = max(Upper)),
+               linetype = 3) +
+  geom_text(mapping=aes(x = Mean_ED95,
+                        y = max(Upper) + 0.12,
+                        label = round(Mean_ED95, 2)),
+            size = 3, angle = 90, check_overlap = T) +
+  #facet_grid(Species ~ Timepoint) +
+  #To add the real PAM and compare with predicted values
+  geom_point(data = cbass_data,
+             aes(x = Temperature,
+                 y = PAM)) +
+                 xlab("Temperature [C°]")+
+  scale_y_continuous(expand = c(0, 0)); tempresp_curve_poc
+
+```
+
+Work on saving plots 
 
 
 

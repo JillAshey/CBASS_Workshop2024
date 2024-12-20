@@ -12,7 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(broom)
-library(ggstatsplot)
+library(ggpubr)
+#library(ggstatsplot)
 ```
 
 Read in data 
@@ -128,7 +129,7 @@ Plot boxplot of ED5
 ggplot(cbass, aes(x = Species, y = ED5)) +
     geom_boxplot(fill = "lightblue", color = "darkblue") +
     theme_minimal() +
-    labs(title = "Boxplot of ED50 by Species", x = "Species", y = "ED5")
+    labs(title = "Boxplot of ED5 by Species", x = "Species", y = "ED5")
 ```
 
 Run ANOVA to compare species ED95s
@@ -233,6 +234,49 @@ ggplot(cbass, aes(x = Species, y = RTT)) +
 ```
 
 
+Plot all metrics 
+```{r}
+cbass$Species <- as.factor(cbass$Species)
+
+# Perform ANOVA and Tukey's HSD for each variable
+post_hoc_results <- lapply(c("ED5", "ED50", "ED95", "DW", "RTT"), function(var) {
+  formula <- as.formula(paste(var, "~ Species"))
+  model <- aov(formula, data = cbass)
+  tukey <- glht(model, linfct = mcp(Species = "Tukey"))
+  cld <- cld(tukey)
+  data.frame(Variable = var, Species = names(cld$mcletters$Letters), 
+             Letter = cld$mcletters$Letters)
+})
+
+post_hoc_df <- do.call(rbind, post_hoc_results)
+
+# Calculate max values for each group to position letters
+max_values <- cbass %>%
+  pivot_longer(cols = c(ED5, ED50, ED95, DW, RTT), names_to = "Variable", values_to = "Value") %>%
+  group_by(Variable, Species) %>%
+  summarise(max_value = max(Value, na.rm = TRUE), .groups = "drop")
+
+# Merge max values with post-hoc results
+post_hoc_df <- post_hoc_df %>%
+  left_join(max_values, by = c("Variable", "Species"))
+
+plot <- ggplot(pivot_longer(cbass, cols = c(ED5, ED50, ED95, DW, RTT), names_to = "Variable", values_to = "Value"),
+       aes(x = Species, y = Value, fill = Species)) +
+  geom_boxplot() +
+  facet_wrap(~ Variable, scales = "free_y") +
+  geom_text(data = post_hoc_df, 
+            aes(y = max_value, label = Letter), 
+            vjust = -0.5, size = 3) +
+  theme_minimal() +
+  labs(title = "Boxplots with Tukey's HSD Results",
+       x = "Species",
+       y = "Value") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none"); plot
+
+ggsave("../output/cbass/cbass_metrics_boxplot.png", plot = last_plot(), width = 10, height = 15)
+ggsave("../output/cbass/cbass_metrics_boxplot.pdf", plot = last_plot(), width = 10, height = 15)
+```
 
 
 

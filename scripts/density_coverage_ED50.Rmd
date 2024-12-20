@@ -1,0 +1,23 @@
+---
+title: "Density and coverage with ED50 data"
+author: "Jill Ashey"
+date: "2024-12-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+Read in summary data
+```{r}
+ed_df <- read.csv("../output/cbass/summaryEDs.csv")
+```
+
+Read in coverage / density data
+```{r}
+
+```
+
