@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(broom)
 library(ggpubr)
+library(car)
+library(multcomp)
 #library(ggstatsplot)
 ```
 
@@ -260,23 +262,37 @@ max_values <- cbass %>%
 post_hoc_df <- post_hoc_df %>%
   left_join(max_values, by = c("Variable", "Species"))
 
-plot <- ggplot(pivot_longer(cbass, cols = c(ED5, ED50, ED95, DW, RTT), names_to = "Variable", values_to = "Value"),
-       aes(x = Species, y = Value, fill = Species)) +
-  geom_boxplot() +
-  facet_wrap(~ Variable, scales = "free_y") +
-  geom_text(data = post_hoc_df, 
-            aes(y = max_value, label = Letter), 
-            vjust = -0.5, size = 3) +
-  theme_minimal() +
-  labs(title = "Boxplots with Tukey's HSD Results",
-       x = "Species",
-       y = "Value") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "none"); plot
+# Create a new dataframe with the columns in the desired order for plotting
+cbass_ordered <- cbass[, c("Species", "ED5", "ED50", "ED95", "DW", "RTT")]
 
-ggsave("../output/cbass/cbass_metrics_boxplot.png", plot = last_plot(), width = 10, height = 15)
-ggsave("../output/cbass/cbass_metrics_boxplot.pdf", plot = last_plot(), width = 10, height = 15)
+# Now create the plot with the improvements
+plot <- ggplot(pivot_longer(cbass_ordered, 
+                            cols = c(ED5, ED50, ED95, DW, RTT), 
+                            names_to = "Variable", 
+                            values_to = "Value"),
+               aes(x = Species, y = Value, fill = Species)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = 21, outlier.fill = "white") +
+  facet_wrap(~ factor(Variable, levels = c("ED5", "ED50", "ED95", "DW", "RTT")), 
+             scales = "free_y", nrow = 1) +
+  geom_text(data = post_hoc_df,
+            aes(y = max_value, label = Letter),
+            vjust = -0.5, size = 10, fontface = "bold", color = "black") +
+  scale_fill_brewer(palette = "Set2") +
+  theme_classic(base_size = 20) +
+  labs(x = "Species",
+       y = "°C") +
+  theme(axis.text.x = element_text(hjust = 1, vjust = 1, color = "black", size = 25),
+        axis.text.y = element_text(color = "black", size = 25),
+        axis.title = element_text(face = "bold", color = "black", size = 30),
+        legend.position = "none",
+        strip.background = element_rect(fill = "grey90", color = NA),
+        strip.text = element_text(face = "bold", color = "black", size = 30),
+        panel.grid.major.x = element_blank(),
+        panel.border = element_rect(color = "black", fill = NA),
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 14, color = "black"));plot
+
+ggsave("../output/cbass/cbass_metrics_boxplot.png", plot = last_plot(), width = 30, height = 15)
+ggsave("../output/cbass/cbass_metrics_boxplot.pdf", plot = last_plot(), width = 30, height = 15)
 ```
-
 
 

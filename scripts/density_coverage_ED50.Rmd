@@ -18,6 +18,12 @@ ed_df <- read.csv("../output/cbass/summaryEDs.csv")
 
 Read in coverage / density data
 ```{r}
-
+cover <- read_csv("../output/benthic/percent_coral_cover.csv")
 ```
+
+
+I FORGET what to do
+
+
+
 
